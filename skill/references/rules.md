@@ -22,16 +22,19 @@ Consequences, all intentional:
 
 | Surface | How direction is decided | Alignment |
 |---|---|---|
-| DOM (Qoder, Hermes) | each element that directly owns text; `dir="rtl"`, `text-align: start`, `unicode-bidi: isolate` | true right/start alignment |
+| Qoder answers | model wraps Persian blocks in `<div dir="rtl" align="right">`; the hook supplies the rule | true right alignment; `style=""` and `<font>` are stripped, raw HTML survives |
+| Hermes desktop | each element that directly owns text; `dir="rtl"`, `text-align: start`, `unicode-bidi: isolate` | true right/start alignment |
 | Claude Code answers | each displayed line; one RLI…PDI isolate around the line | order only; the app owns alignment |
+| Rules-only harnesses (Cline, OpenCode, ZCode, Freebuff, DeepSeek, Codex) | model follows the instructions block; one Persian paragraph per line, commands outside it | order only; no raw HTML surface |
 | Terminal | model output shape; commands on their own lines | none; terminals are LTR cell grids |
 
 ## Never touched
 
 - `pre`, `code`, `kbd`, `samp`, `textarea`, inputs, `contenteditable`, SVG, math.
   Commands, paths and identifiers must stay byte-exact.
-- Fenced code blocks in the Claude hook. An invisible PDI riding along on
-  copy-paste breaks PowerShell/bash.
+- Fenced code blocks in every surface. An invisible PDI riding along on
+  copy-paste breaks PowerShell/bash, and a code fence inside an RTL wrapper can
+  reorder punctuation.
 - The saved transcript and what the model sees. Display-only transforms must
   never write to disk.
 - Document base direction. The app chrome stays LTR; only Persian-bearing

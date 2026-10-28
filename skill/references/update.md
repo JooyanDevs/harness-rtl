@@ -32,17 +32,18 @@ instructions block and report the limitation; do not fake a fix.
 
 ### Qoder
 
-The launcher always starts the newest `.qoder-versions/<version>` build, so a
-Qoder update lands on the same injector. Check:
+Qoder reads hooks from `~/.qoder/settings.json` and renders raw HTML in chat, so
+there is no launcher, injector or debug port. The two things that can break:
 
-```bash
-cscript //nologo "%USERPROFILE%\.qoder\harness-rtl\start-qoder-rtl.vbs" --check
-```
+- the hook events `SessionStart` / `UserPromptSubmit` are renamed or stop
+  accepting `additionalContext` — `verify` fails on the JSON round-trip;
+- the Markdown sanitizer drops `dir`/`align` on `div` — the answer still orders
+  correctly but loses alignment. Check by asking Qoder for a one-line Persian
+  answer and inspecting the HTML; if `dir` is gone, fall back to the
+  instructions block and say so.
 
-`rtl_active=True` means the debug port is on. The renderer script is
-selector-agnostic (it walks text nodes), so DOM restyles rarely break it; a
-rename of the process, the `--remote-debugging-port` flag or the version folder
-layout will. Only then edit `adapters/qoder/start-qoder-rtl.vbs`.
+The hook script lives in the installed skill (`skills/harness-rtl/qoder/hook.js`);
+edit it in the repo and reinstall.
 
 ### Hermes
 
@@ -50,11 +51,12 @@ The plugin contract is `plugin.yaml` + `desktop/plugin.js` exporting
 `{ id, name, register }`. If Hermes changes that contract, `verify` fails on the
 file/enable check; update `adapters/hermes/adapter.js` and reinstall.
 
-### Codex
+### Rules-only harnesses (Codex, Cline, OpenCode, ZCode, Freebuff, DeepSeek)
 
-No display hook exists (hooks may rewrite tool input, not assistant output).
-Codex desktop renders bidi itself. If that regresses, the only supported action
-is the instructions block plus a clear report; keep `engine/` untouched.
+These have no display hook. Codex desktop renders bidi itself; the others render
+plain Markdown. The only lever is the instructions block, so a regression means
+the model stopped following it — tighten the wording in `RULES_BLOCK`
+(`install/rtl.js`) and reinstall. Do not claim alignment these UIs cannot do.
 
 ## 3. Patch the smallest layer
 

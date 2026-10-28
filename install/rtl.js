@@ -10,7 +10,8 @@
  *   node install/rtl.js build
  *
  * Local only: reads versions and config paths, never message content, never
- * sends anything over the network (except loopback CDP for live verification).
+ * sends anything over the network. Every harness is fixed through its own
+ * native extension point; nothing is installed outside the harness folders.
  */
 'use strict';
 
@@ -205,16 +206,100 @@ function qoderVersion(root) {
 function detectQoder() {
   const root = qoderRoot();
   if (!root) return null;
-  const dir = path.join(HOME, '.qoder', 'harness-rtl');
+  const dir = path.join(HOME, '.qoder');
+  const settings = path.join(dir, 'settings.json');
+  const skillsDir = path.join(dir, 'skills');
+  const hookFile = path.join(skillsDir, 'harness-rtl', 'qoder', 'hook.js');
   return {
     id: 'qoder',
     name: 'Qoder',
     root,
     version: qoderVersion(root),
-    adapterInstalled: exists(path.join(dir, 'rtl-fix.page.js')) && exists(path.join(dir, 'injector.mjs')),
-    dir,
-    skillsDir: path.join(HOME, '.qoder', 'skills'),
-    windows: process.platform === 'win32',
+    adapterInstalled: exists(hookFile) && settingsHas(settings),
+    settings,
+    hookFile,
+    skillsDir,
+    legacyDir: path.join(dir, 'harness-rtl'),
+    legacy: exists(path.join(dir, 'harness-rtl')),
+  };
+}
+
+/* Harnesses without a display hook live on their global instruction file. */
+
+function detectCline() {
+  const isInstalled = exists(path.join(HOME, '.cline')) || exists(path.join(localAppData(), 'Cline'));
+  if (!isInstalled) return null;
+  const docs = exists(path.join(HOME, 'OneDrive', 'Documents'))
+    ? path.join(HOME, 'OneDrive', 'Documents')
+    : path.join(HOME, 'Documents');
+  const rulesDir = path.join(docs, 'Cline', 'Rules');
+  const rulesFile = path.join(rulesDir, 'harness-rtl.md');
+  return {
+    id: 'cline',
+    name: 'Cline',
+    version: versionOf('cline-app', ['--version']),
+    rulesFile,
+    adapterInstalled: exists(rulesFile) && read(rulesFile).includes('harness-rtl:begin'),
+  };
+}
+
+function detectOpencode() {
+  const dir = path.join(HOME, '.config', 'opencode');
+  if (!exists(dir)) return null;
+  const skillsDir = path.join(dir, 'skills');
+  return {
+    id: 'opencode',
+    name: 'OpenCode',
+    version: versionOf('opencode', ['--version']),
+    rulesFile: path.join(dir, 'AGENTS.md'),
+    skillsDir,
+    adapterInstalled:
+      exists(path.join(dir, 'AGENTS.md')) &&
+      read(path.join(dir, 'AGENTS.md')).includes('harness-rtl:begin'),
+  };
+}
+
+function detectZcode() {
+  const dir = path.join(HOME, '.zcode');
+  if (!exists(dir)) return null;
+  return {
+    id: 'zcode',
+    name: 'ZCode',
+    version: versionOf('ZCode', ['--version']),
+    rulesFile: path.join(dir, 'AGENTS.md'),
+    skillsDir: path.join(dir, 'skills'),
+    adapterInstalled:
+      exists(path.join(dir, 'AGENTS.md')) &&
+      read(path.join(dir, 'AGENTS.md')).includes('harness-rtl:begin'),
+  };
+}
+
+function detectFreebuff() {
+  const data = path.join(process.env.APPDATA || '', 'Freebuff');
+  const app = path.join(localAppData(), 'Programs', '@codebufffreebuff-desktop');
+  if (!exists(data) && !exists(app)) return null;
+  const rulesFile = path.join(HOME, '.knowledge.md');
+  return {
+    id: 'freebuff',
+    name: 'Freebuff',
+    version: null,
+    rulesFile,
+    adapterInstalled: exists(rulesFile) && read(rulesFile).includes('harness-rtl:begin'),
+  };
+}
+
+function detectDeepseek() {
+  const dir = path.join(HOME, '.dsh');
+  if (!exists(dir)) return null;
+  return {
+    id: 'deepseek',
+    name: 'DeepSeek Harness',
+    version: null,
+    rulesFile: path.join(dir, 'AGENTS.md'),
+    skillsDir: path.join(dir, 'skills'),
+    adapterInstalled:
+      exists(path.join(dir, 'AGENTS.md')) &&
+      read(path.join(dir, 'AGENTS.md')).includes('harness-rtl:begin'),
   };
 }
 
@@ -259,7 +344,10 @@ function detectCodex() {
 }
 
 function detectAll() {
-  return [detectClaude(), detectQoder(), detectHermes(), detectCodex()].filter(Boolean);
+  return [
+    detectClaude(), detectQoder(), detectHermes(), detectCodex(),
+    detectCline(), detectOpencode(), detectZcode(), detectFreebuff(), detectDeepseek(),
+  ].filter(Boolean);
 }
 
 /* ------------------------------------------------------------- file edits */
@@ -295,6 +383,7 @@ function upsertRules(file) {
   const text = exists(file) ? read(file).trimEnd() : '';
   const re = /<!-- harness-rtl:begin[\s\S]*?<!-- harness-rtl:end -->/;
   const next = re.test(text) ? text.replace(re, RULES_BLOCK) : `${text}\n\n${RULES_BLOCK}`.trimStart();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   backup(file);
   write(file, next + '\n');
 }
@@ -371,22 +460,40 @@ function installClaude(h, state, dry) {
   return lines;
 }
 
+function cleanupLegacyQoder(h) {
+  const known = ['start-qoder-rtl.vbs', 'injector.mjs', 'make-shortcut.ps1', 'rtl-fix.page.js', 'injector.log'];
+  if (exists(h.legacyDir) && known.some((n) => exists(path.join(h.legacyDir, n)))) {
+    fs.rmSync(h.legacyDir, { recursive: true, force: true });
+  }
+  for (const desktop of [path.join(HOME, 'Desktop'), path.join(HOME, 'OneDrive', 'Desktop')]) {
+    const lnk = path.join(desktop, 'Qoder RTL.lnk');
+    if (exists(lnk)) { try { fs.rmSync(lnk, { force: true }); } catch {} }
+  }
+}
+
 function installQoder(h, state, dry) {
-  if (!h.windows) return ['skipped: the Qoder launcher is Windows-only'];
-  const files = {
-    'rtl-fix.page.js': path.join(ROOT, 'dist', 'qoder', 'rtl-fix.page.js'),
-    'injector.mjs': path.join(ROOT, 'adapters', 'qoder', 'injector.mjs'),
-    'start-qoder-rtl.vbs': path.join(ROOT, 'adapters', 'qoder', 'start-qoder-rtl.vbs'),
-    'make-shortcut.ps1': path.join(ROOT, 'adapters', 'qoder', 'make-shortcut.ps1'),
-  };
-  if (!dry) for (const [name, src] of Object.entries(files)) copyFile(src, path.join(h.dir, name));
+  const skill = installSkill(h.skillsDir, state, dry);
+  const hookFile = path.join(skill, 'qoder', 'hook.js');
+  if (!dry) {
+    const cmd = `"${process.execPath}" "${norm(hookFile)}"`;
+    upsertHookGroup(h.settings, 'SessionStart', `${cmd} SessionStart`, 10);
+    upsertHookGroup(h.settings, 'UserPromptSubmit', `${cmd} UserPromptSubmit`, 10);
+    cleanupLegacyQoder(h);
+  }
   return [
-    `adapter: ${h.dir}`,
-    `skill: ${installSkill(h.skillsDir, state, dry)}`,
-    'next: create the launcher shortcut once:',
-    `  powershell -ExecutionPolicy Bypass -File "${norm(path.join(h.dir, 'make-shortcut.ps1'))}"`,
-    'then quit Qoder and start it from "Qoder RTL".',
+    `hook: SessionStart + UserPromptSubmit in ${h.settings}`,
+    `script: ${hookFile}`,
+    `skill: ${skill}`,
+    'no launcher, no shortcut: Qoder loads the rule from its own settings.',
+    'next: restart Qoder once (hook settings are read at startup).',
   ];
+}
+
+function installRulesOnly(h, state, dry, extra = []) {
+  if (!dry && !has('--no-rules')) upsertRules(h.rulesFile);
+  const lines = [has('--no-rules') ? 'rules: skipped (--no-rules)' : `rules: ${h.rulesFile}`];
+  if (h.skillsDir) lines.push(`skill: ${installSkill(h.skillsDir, state, dry)}`);
+  return lines.concat(extra);
 }
 
 function installHermes(h, state, dry) {
@@ -438,7 +545,12 @@ function install() {
     if (h.id === 'claude') lines = installClaude(h, state, dry);
     else if (h.id === 'qoder') lines = installQoder(h, state, dry);
     else if (h.id === 'hermes') lines = installHermes(h, state, dry);
-    else lines = installCodex(h, state, dry);
+    else if (h.id === 'codex') lines = installCodex(h, state, dry);
+    else if (h.id === 'cline') lines = installRulesOnly(h, state, dry, ['format: safe isolates only; Cline does not render raw HTML']);
+    else if (h.id === 'freebuff') lines = installRulesOnly(h, state, dry, ['format: safe isolates only; Freebuff has no raw HTML in chat']);
+    else if (h.id === 'opencode') lines = installRulesOnly(h, state, dry, ['format: safe isolates only; OpenCode desktop strips raw HTML']);
+    else if (h.id === 'zcode') lines = installRulesOnly(h, state, dry, ['format: safe isolates; HTML wrapper only if this build renders it']);
+    else lines = installRulesOnly(h, state, dry, ['format: safe isolates only']);
     for (const line of lines) console.log('  ' + line);
   }
   if (!dry) {
@@ -472,44 +584,40 @@ function verifyClaude(h) {
   return problems;
 }
 
-function qoderEval(wsUrl, expr) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
-    const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('timeout')); }, 3000);
-    ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true } }));
-    ws.onerror = () => { clearTimeout(timer); reject(new Error('ws error')); };
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.id !== 1) return;
-      clearTimeout(timer);
-      try { ws.close(); } catch {}
-      if (msg.error) reject(new Error(msg.error.message));
-      else resolve(msg.result && msg.result.result ? msg.result.result.value : null);
-    };
-  });
+function verifyQoder(h) {
+  const problems = [];
+  if (!exists(h.hookFile)) problems.push('hook script missing');
+  if (!settingsHas(h.settings)) problems.push('hook missing from settings.json');
+  if (!problems.length) {
+    for (const event of ['SessionStart', 'UserPromptSubmit']) {
+      let out;
+      try {
+        out = execFileSync(process.execPath, [h.hookFile, event], { encoding: 'utf8', timeout: 8000 });
+      } catch (err) {
+        problems.push(`hook failed for ${event}`);
+        continue;
+      }
+      let parsed;
+      try { parsed = JSON.parse(out); } catch { problems.push(`hook output for ${event} is not JSON`); continue; }
+      const outEvent = parsed.hookSpecificOutput && parsed.hookSpecificOutput.hookEventName;
+      const ctx = parsed.hookSpecificOutput && parsed.hookSpecificOutput.additionalContext;
+      if (outEvent !== event) problems.push(`hookEventName mismatch for ${event}`);
+      if (!ctx || !ctx.includes('dir="rtl"')) problems.push(`direction rule missing for ${event}`);
+      if (/[\u2066-\u2069]/.test(out)) problems.push(`bidi control leaked into ${event} output`);
+    }
+  }
+  return problems;
 }
 
-async function verifyQoder(h) {
+function verifyRulesOnly(h) {
   const problems = [];
-  for (const name of ['rtl-fix.page.js', 'injector.mjs', 'start-qoder-rtl.vbs']) {
-    if (!exists(path.join(h.dir, name))) problems.push(`${name} missing`);
+  if (!(exists(h.rulesFile) && read(h.rulesFile).includes('harness-rtl:begin'))) {
+    problems.push(`rules block missing from ${h.rulesFile}`);
   }
-  const port = Number(process.env.QODER_RTL_PORT || 9227);
-  let live = null;
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1500) });
-    const pages = (await res.json()).filter((t) =>
-      t.type === 'page' && t.webSocketDebuggerUrl &&
-      t.url && !/^(devtools|chrome|about):/.test(t.url)
-    );
-    for (const page of pages) {
-      try {
-        const n = await qoderEval(page.webSocketDebuggerUrl, 'window.__qoderHarnessRtl ? window.__qoderHarnessRtl.count() : -1');
-        if (typeof n === 'number' && n >= 0) { live = n; break; }
-      } catch {}
-    }
-  } catch {}
-  return { problems, live, port };
+  if (h.skillsDir && !exists(path.join(h.skillsDir, 'harness-rtl', 'SKILL.md'))) {
+    problems.push('skill copy missing');
+  }
+  return problems;
 }
 
 function verifyHermes(h) {
@@ -550,14 +658,11 @@ async function verify() {
     let note = '';
     if (h.id === 'claude') problems = verifyClaude(h);
     else if (h.id === 'qoder') {
-      const r = await verifyQoder(h);
-      problems = r.problems;
-      note = r.live === null
-        ? `live check skipped (Qoder not running with port ${r.port}; start it from "Qoder RTL")`
-        : `live markers: ${r.live}`;
-      if (r.live === 0) note += ' — no Persian text visible yet';
+      problems = verifyQoder(h);
+      note = 'in-harness hook; answers get dir wrappers, UI chrome is not restyled';
     } else if (h.id === 'hermes') problems = verifyHermes(h);
-    else problems = verifyCodex(h);
+    else if (h.id === 'codex') problems = verifyCodex(h);
+    else problems = verifyRulesOnly(h);
 
     if (problems.length) {
       failed++;
@@ -649,7 +754,8 @@ function uninstall() {
       removeRules(h.rulesFile);
       fs.rmSync(path.dirname(h.adapterFile), { recursive: true, force: true });
     } else if (h.id === 'qoder') {
-      fs.rmSync(h.dir, { recursive: true, force: true });
+      removeHooks(h.settings);
+      cleanupLegacyQoder(h);
     } else if (h.id === 'hermes') {
       for (const profile of h.profiles) {
         fs.rmSync(path.join(profile, 'plugins', 'harness-rtl'), { recursive: true, force: true });
@@ -657,13 +763,14 @@ function uninstall() {
       }
     } else if (h.id === 'codex') {
       removeRules(h.rulesFile);
+    } else {
+      removeRules(h.rulesFile);
     }
-    fs.rmSync(path.join(h.skillsDir, 'harness-rtl'), { recursive: true, force: true });
+    if (h.skillsDir) fs.rmSync(path.join(h.skillsDir, 'harness-rtl'), { recursive: true, force: true });
     delete state.verified[h.id];
     console.log(`removed ${h.name}`);
   }
   saveState(state);
-  if (list.some((h) => h.id === 'qoder')) console.log('delete the "Qoder RTL" shortcuts manually if you created them.');
 }
 
 /* ------------------------------------------------------------------ main */

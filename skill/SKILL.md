@@ -5,8 +5,9 @@ description: >
   in generated apps. Use when Persian text is scrambled, mirrored, left-aligned,
   truncated on the wrong side, or set in the wrong font; when the user asks for
   RTL / راست‌چین / به‌هم‌ریختگی / bidi / Vazirmatn in Claude Code, Qoder, Hermes,
-  Codex or a terminal; or when a harness update may have broken RTL. Also use
-  before publishing the harness-rtl repo.
+  Codex, Cline, OpenCode, ZCode, Freebuff, DeepSeek or a terminal; or when a
+  harness update may have broken RTL. Also use before publishing the harness-rtl
+  repo.
 license: MIT
 ---
 
@@ -45,13 +46,20 @@ Do not report success until it prints PASS for the harness you touched.
 | Harness | Surface | Result |
 |---|---|---|
 | Claude Code | `MessageDisplay` hook + `SessionStart` notice | correct order in answers, code untouched |
-| Qoder | CDP renderer script, launched via `Qoder RTL` | true RTL alignment, ellipsis, Vazirmatn, composer `dir=auto` |
+| Qoder | `SessionStart` + `UserPromptSubmit` hooks | answers right-aligned via `<div dir="rtl" align="right">`; UI chrome unchanged |
 | Hermes | desktop plugin | true RTL alignment, ellipsis, Vazirmatn |
 | Codex | instructions block only | correct output shape; desktop already renders bidi |
+| Cline | global rules file | order-safe answers; no raw HTML in chat |
+| OpenCode | `AGENTS.md` + skill | order-safe answers; no raw HTML in chat |
+| ZCode | `AGENTS.md` + skill | order-safe answers |
+| Freebuff | `~/.knowledge.md` | order-safe answers |
+| DeepSeek Harness | `AGENTS.md` + skill | order-safe answers |
 | Terminals | instructions block only | order-safe text; a cell terminal cannot right-align |
 
-Qoder must be started from the **Qoder RTL** shortcut after install. If Qoder
-was already running, say so plainly and let the user restart it.
+In Qoder the hook carries the rule automatically. In every other harness without a
+display hook, follow the rules block: Persian blocks right-to-left, pure English and
+code untouched, never put a command or path inside a Persian sentence. Do not wrap
+answers in HTML unless the harness is Qoder; other renderers show the tags as text.
 
 ## 3. Update notices (self-update)
 
@@ -69,15 +77,14 @@ node "<repo>/install/rtl.js" check
 - "release behind": the local adapter works but the published manifest is older.
   Only the maintainer acts on this; tell the user a skill release is due.
 
-Claude Code shows this notice by itself at session start. Other harnesses have
-no display hook, so the skill is the notice.
+Claude Code shows this notice by itself at session start. Everywhere else the
+skill is the notice.
 
 ## 4. When something looks wrong
 
 1. Persian scrambled but English fine → a display hook/adapter is missing. Install.
 2. Lines align right but words are mirrored → an old build or a second bidi
-   layer is active. Compare `detect` with the legacy artifacts warning; remove
-   the old fix before reinstalling.
+   layer is active. Remove the older RTL fix before reinstalling.
 3. Commands break when copied → a bidi isolate leaked into a code fence. This is
    a release blocker; fix `engine/text-fix.js` fence tracking first.
 4. Everything right but the font is not Vazirmatn → the font must be installed
@@ -88,8 +95,8 @@ no display hook, so the skill is the notice.
 
 The tool reads harness versions and config paths only. It never reads chat
 content, transcripts, histories, tokens or environment secrets; it never sends
-anything to a server; the only network call is loopback CDP to the harness the
-user is already running. Details: `references/privacy.md`.
+anything to a server; there is no network call and no background process.
+Details: `references/privacy.md`.
 
 ## 6. References
 

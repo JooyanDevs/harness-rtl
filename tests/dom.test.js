@@ -12,7 +12,9 @@ const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const ROOT = path.join(__dirname, '..');
-const SOURCE = fs.readFileSync(path.join(ROOT, 'dist', 'qoder', 'rtl-fix.page.js'), 'utf8');
+const SOURCE = ['engine/direction.js', 'engine/dom-fix.js']
+  .map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8'))
+  .join('\n') + '\nglobalThis.__harnessRtl = HarnessRtlDom.install({ font: true, composer: true });\n';
 const PAGE_URL = pathToFileURL(path.join(__dirname, 'fixtures', 'dom.html')).href;
 const PORT = 9334;
 const PROFILE = path.join(os.tmpdir(), 'harness-rtl-chrome-' + Date.now());

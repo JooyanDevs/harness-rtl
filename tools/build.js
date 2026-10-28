@@ -19,10 +19,6 @@ const BUILDS = [
     parts: ['engine/direction.js', 'engine/text-fix.js', 'adapters/claude/adapter.js'],
   },
   {
-    out: 'dist/qoder/rtl-fix.page.js',
-    parts: ['engine/direction.js', 'engine/dom-fix.js', 'adapters/qoder/adapter.js'],
-  },
-  {
     out: 'dist/hermes/plugin.js',
     parts: ['engine/direction.js', 'engine/dom-fix.js', 'adapters/hermes/adapter.js'],
   },

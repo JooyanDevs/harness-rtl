@@ -1,5 +1,5 @@
 {
-  "released": "0.1.0",
+  "released": "0.2.0",
   "updated": "2026-10-28",
   "harnesses": [
     {
@@ -12,7 +12,7 @@
       "id": "qoder",
       "name": "Qoder",
       "tested": "0.4.11",
-      "surface": "CDP renderer injection (Windows launcher)"
+      "surface": "SessionStart + UserPromptSubmit hooks; HTML dir wrapper in answers"
     },
     {
       "id": "hermes",
@@ -23,8 +23,38 @@
     {
       "id": "codex",
       "name": "Codex",
-      "tested": "0.160.1",
+      "tested": "0.162.1",
       "surface": "instructions only (desktop renders RTL natively, no display hook)"
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "tested": null,
+      "surface": "global rules file"
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "tested": "1.19.3",
+      "surface": "AGENTS.md + skill"
+    },
+    {
+      "id": "zcode",
+      "name": "ZCode",
+      "tested": null,
+      "surface": "AGENTS.md + skill"
+    },
+    {
+      "id": "freebuff",
+      "name": "Freebuff",
+      "tested": null,
+      "surface": "global knowledge file"
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek Harness",
+      "tested": null,
+      "surface": "AGENTS.md + skill"
     }
   ]
 }
