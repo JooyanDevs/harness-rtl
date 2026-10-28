@@ -442,6 +442,22 @@ function installSkill(skillsDir, state, dry) {
   return dest;
 }
 
+// settings.json is synced between machines, so the command must not hold a user
+// name or a bare "node" (it does not resolve on every machine). Pick the Mac or
+// Windows runtime at run time and keep paths under $HOME.
+function homePath(file) {
+  const home = norm(HOME);
+  const f = norm(file);
+  return f.startsWith(home + '/') ? '$HOME' + f.slice(home.length) : f;
+}
+
+function portableNode(file, args = '') {
+  const p = homePath(file);
+  const mac = '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node';
+  const win = 'C:/Program Files/nodejs/node.exe';
+  return `if [ -x "${mac}" ]; then "${mac}" "${p}"${args}; else "${win}" "${p}"${args}; fi`;
+}
+
 function installClaude(h, state, dry) {
   const hook = path.join(ROOT, 'dist', 'claude', 'fix-rtl.js');
   const rtl = path.join(ROOT, 'install', 'rtl.js');
@@ -452,10 +468,10 @@ function installClaude(h, state, dry) {
   } else if (!dry) {
     if (h.legacy) removeLegacyHooks(h.settings);
     copyFile(hook, h.adapterFile);
-    upsertHookGroup(h.settings, 'MessageDisplay', `node "${norm(h.adapterFile)}"`, 10);
+    upsertHookGroup(h.settings, 'MessageDisplay', portableNode(h.adapterFile), 10);
     // One line of context at session start, only when a harness changed.
     upsertHookGroup(h.settings, 'SessionStart',
-      `[ -f "${norm(rtl)}" ] && node "${norm(rtl)}" check --hook 2>/dev/null || true`, 20);
+      `[ -f "${homePath(rtl)}" ] && { ${portableNode(rtl, ' check --hook 2>/dev/null')}; } || true`, 20);
     if (!has('--no-rules')) upsertRules(h.rulesFile);
     lines.push(`hook: ${h.adapterFile}`);
     lines.push(`settings: MessageDisplay + SessionStart in ${h.settings}`);
