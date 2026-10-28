@@ -1,0 +1,17 @@
+{
+  "name": "harness-rtl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persian RTL fix and a self-updating skill for AI harnesses",
+  "license": "MIT",
+  "bin": {
+    "harness-rtl": "install/rtl.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node --test"
+  }
+}

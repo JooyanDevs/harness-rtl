@@ -1,0 +1,30 @@
+{
+  "released": "0.1.0",
+  "updated": "2026-10-28",
+  "harnesses": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "tested": "2.1.299",
+      "surface": "MessageDisplay + SessionStart hooks"
+    },
+    {
+      "id": "qoder",
+      "name": "Qoder",
+      "tested": "0.4.11",
+      "surface": "CDP renderer injection (Windows launcher)"
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes",
+      "tested": "0.22.5",
+      "surface": "desktop plugin"
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "tested": "0.160.1",
+      "surface": "instructions only (desktop renders RTL natively, no display hook)"
+    }
+  ]
+}

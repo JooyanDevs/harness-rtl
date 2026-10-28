@@ -1,0 +1,4 @@
+name: harness-rtl
+version: "0.1.0"
+description: Persian RTL display fix for the whole desktop UI (direction by letter presence, code kept LTR, Vazirmatn)
+provides_hooks: []

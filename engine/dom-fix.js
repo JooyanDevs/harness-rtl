@@ -1,0 +1,218 @@
+/*
+ * DOM fix for Electron harnesses (Qoder, Hermes, anything with a renderer we
+ * can reach). Direction marks fix order; only CSS can fix alignment, truncation
+ * and font, which is why this runs inside the page.
+ *
+ * Rules:
+ *  - only text an element DIRECTLY owns is classified, never its subtree;
+ *  - any RTL letter makes that element RTL; pure Latin stays untouched;
+ *  - elements with block-level children are containers: leave their layout;
+ *  - climb single-child wrappers so text-overflow puts the ellipsis on the
+ *    correct side;
+ *  - mark only the outermost safe element;
+ *  - code / pre / inputs stay byte-exact LTR islands;
+ *  - table cells decide individually so columns keep source order.
+ *
+ * Re-sweeps on mutations with a 60 ms throttle (streaming markdown).
+ */
+(function (root) {
+  'use strict';
+
+  var ATTR = 'data-harness-rtl';
+  var STYLE_ID = 'harness-rtl-style';
+  var SKIP = 'pre,code,kbd,samp,textarea,input,script,style,svg,math,[contenteditable="true"]';
+  var BLOCKISH = { block: 1, flex: 1, grid: 1, table: 1, 'list-item': 1, 'flow-root': 1 };
+  var FONT = '"Vazirmatn", "Vazirmatn RD", "Vazirmatn UI", "Segoe UI", Tahoma, sans-serif';
+
+  var dir = root.HarnessRtlDirection;
+  if (!dir) throw new Error('harness-rtl: engine/direction.js must load first');
+  var directionForText = dir.directionForText;
+
+  function ownedText(el) {
+    var text = '';
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var node = el.childNodes[i];
+      if (node.nodeType === 3) text += ' ' + (node.nodeValue || '');
+    }
+    return text;
+  }
+
+  function hasBlockChild(el) {
+    for (var i = 0; i < el.children.length; i++) {
+      if (BLOCKISH[getComputedStyle(el.children[i]).display]) return true;
+    }
+    return false;
+  }
+
+  function clear(el) {
+    el.removeAttribute(ATTR);
+    el.removeAttribute('dir');
+  }
+
+  // The box that truncates is often a one-child wrapper. text-overflow follows
+  // the CONTAINER's direction, so the wrapper inherits the decision.
+  function markWrappers(el) {
+    var text = (el.textContent || '').trim();
+    var current = el;
+    for (;;) {
+      var parent = current.parentElement;
+      if (!parent || parent === document.body) return;
+      if (parent.children.length !== 1 || parent.closest(SKIP)) return;
+      if ((parent.textContent || '').trim() !== text) return;
+      parent.setAttribute(ATTR, 'rtl');
+      parent.setAttribute('dir', 'rtl');
+      current = parent;
+    }
+  }
+
+  function mark(el) {
+    el.setAttribute(ATTR, 'rtl');
+    el.setAttribute('dir', 'rtl');
+    markWrappers(el);
+  }
+
+  function sweep(scopeRoot) {
+    if (!(scopeRoot instanceof HTMLElement) || !scopeRoot.isConnected) return;
+
+    var scope = [scopeRoot];
+    var all = scopeRoot.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) scope.push(all[i]);
+
+    var holders = [];
+    for (var j = 0; j < scope.length; j++) {
+      var el = scope[j];
+      if (el.closest(SKIP)) continue;
+      if (directionForText(ownedText(el)) === 'rtl') holders.push(el);
+    }
+
+    // Clear stale marks first so a re-render that drops the Persian text also
+    // drops the attribute.
+    for (var k = 0; k < scope.length; k++) {
+      if (scope[k].hasAttribute(ATTR)) clear(scope[k]);
+    }
+
+    var safe = new Set();
+    for (var m = 0; m < holders.length; m++) {
+      if (!hasBlockChild(holders[m])) safe.add(holders[m]);
+    }
+
+    for (var n = 0; n < holders.length; n++) {
+      var el2 = holders[n];
+      if (!safe.has(el2)) continue;
+      var ancestor = el2.parentElement;
+      var shadowed = false;
+      while (ancestor) {
+        if (safe.has(ancestor)) { shadowed = true; break; }
+        ancestor = ancestor.parentElement;
+      }
+      if (!shadowed) mark(el2);
+    }
+  }
+
+  function fixComposer() {
+    var boxes = document.querySelectorAll('textarea, [contenteditable="true"]');
+    for (var i = 0; i < boxes.length; i++) {
+      // xterm.js keeps a hidden textarea for key/composition input.
+      if (boxes[i].closest('.xterm')) continue;
+      if (!boxes[i].hasAttribute('dir')) boxes[i].setAttribute('dir', 'auto');
+    }
+  }
+
+  function css(font) {
+    return [
+      '[' + ATTR + '="rtl"] {',
+      '  direction: rtl !important;',
+      '  text-align: start !important;',
+      '  unicode-bidi: isolate !important;',
+      '  letter-spacing: 0 !important;',
+      font ? '  font-family: ' + FONT + ' !important;' : '',
+      '}',
+      'p:has(> [' + ATTR + '="rtl"]), li:has(> [' + ATTR + '="rtl"]),',
+      'div:has(> [' + ATTR + '="rtl"]):not(:has(> :not([' + ATTR + '="rtl"]))) {',
+      '  text-align: start !important;',
+      '}',
+      '[' + ATTR + '="rtl"] :is(code, kbd, samp) {',
+      '  direction: ltr !important;',
+      '  unicode-bidi: isolate !important;',
+      '  text-align: left !important;',
+      '  font-family: ui-monospace, SFMono-Regular, Consolas, monospace !important;',
+      '}',
+      '[' + ATTR + '="rtl"] :is(pre, textarea) {',
+      '  direction: ltr !important;',
+      '  text-align: left !important;',
+      '}',
+      '[' + ATTR + '="rtl"] :is(td, th),',
+      'td[' + ATTR + '="rtl"], th[' + ATTR + '="rtl"] {',
+      '  unicode-bidi: plaintext !important;',
+      '}',
+    ].filter(Boolean).join('\n');
+  }
+
+  function install(options) {
+    options = options || {};
+    var useFont = options.font !== false;
+    var useComposer = options.composer !== false;
+
+    var previous = root.__harnessRtl;
+    if (previous && typeof previous.dispose === 'function') previous.dispose();
+
+    var old = document.getElementById(STYLE_ID);
+    if (old) old.remove();
+    var style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = css(useFont);
+    (document.head || document.documentElement).appendChild(style);
+
+    function run() {
+      if (!document.body) return;
+      sweep(document.body);
+      if (useComposer) fixComposer();
+    }
+
+    run();
+
+    var timer = null;
+    var pending = new Set();
+    var flush = function () {
+      timer = null;
+      var roots = Array.from(pending);
+      pending.clear();
+      for (var i = 0; i < roots.length; i++) {
+        var node = roots[i];
+        var el = node instanceof HTMLElement ? node : node.parentElement;
+        if (el && el.isConnected) sweep(el);
+      }
+      if (useComposer) fixComposer();
+    };
+    var schedule = function () {
+      if (timer !== null) return;
+      timer = setTimeout(flush, 60);
+    };
+    if (!document.body) {
+      document.addEventListener('DOMContentLoaded', run, { once: true });
+    }
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        pending.add(mutations[i].target);
+        mutations[i].addedNodes.forEach(function (node) { pending.add(node); });
+      }
+      schedule();
+    });
+    observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+
+    var api = {
+      count: function () { return document.querySelectorAll('[' + ATTR + ']').length; },
+      dispose: function () {
+        observer.disconnect();
+        if (timer !== null) { clearTimeout(timer); timer = null; }
+        style.remove();
+        document.querySelectorAll('[' + ATTR + ']').forEach(clear);
+        if (root.__harnessRtl === api) root.__harnessRtl = null;
+      },
+    };
+    root.__harnessRtl = api;
+    return api;
+  }
+
+  root.HarnessRtlDom = { install: install, ATTR: ATTR, STYLE_ID: STYLE_ID };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

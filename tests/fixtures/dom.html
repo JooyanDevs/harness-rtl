@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui, sans-serif; width: 720px; margin: 0; padding: 16px; }
+    p { width: 100%; }
+    .sidebar { width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <p id="fa">این یک پاراگراف فارسی است که باید راست‌چین شود.</p>
+    <p id="en">This English paragraph must stay left aligned.</p>
+    <p id="mixed">برای HERMES_DESKTOP_CDP_PORT چه مقداری انتخاب کنم؟</p>
+    <p id="en-one-fa">Use the Persian label فارسی in this field</p>
+    <div class="sidebar"><span id="sidebar">گفتگوی طولانی فارسی برای آزمون سه‌نقطه</span></div>
+    <p id="code-parent">دستور <code>npm test</code> را اجرا کن</p>
+    <table>
+      <tr><td id="cell-fa">نام</td><td id="cell-en">value</td></tr>
+    </table>
+    <div id="editor" contenteditable="true"></div>
+    <textarea id="ta"></textarea>
+    <pre id="preblock">echo 'سلام'</pre>
+  </div>
+</body>
+</html>
