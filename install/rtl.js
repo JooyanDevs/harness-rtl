@@ -33,14 +33,19 @@ const flags = argv.filter((a) => a.startsWith('--'));
 const targets = argv.slice(1).filter((a) => !a.startsWith('--'));
 const has = (f) => flags.includes(f);
 
-const RULES_BLOCK = `<!-- harness-rtl:begin (managed; edit outside this block) -->
+function rulesBlock(withCheck) {
+  const check = withCheck
+    ? `\n- At the start of a session, run \`node "${norm(path.join(ROOT, 'install', 'rtl.js'))}" check --hook\`. If it prints a \`harness-rtl:\` line, repeat it to the user in one line; the harness changed and the skill may need updating.`
+    : '';
+  return `<!-- harness-rtl:begin (managed; edit outside this block) -->
 ## Persian output
 
 - When the user writes Persian, reply in Persian.
 - A block that contains Persian is right-to-left. Keep a Persian paragraph on one line and never break it with a command, path, URL or identifier — put those on their own line.
 - Pure English and code stay left-to-right. Mixed Persian + English is right-to-left.
-- Fenced code must stay byte-exact: no bidi control characters, no reordering, no wrapping.
+- Fenced code must stay byte-exact: no bidi control characters, no reordering, no wrapping.${check}
 <!-- harness-rtl:end -->`;
+}
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -379,10 +384,11 @@ function removeHooks(file) {
   writeJson(file, settings);
 }
 
-function upsertRules(file) {
+function upsertRules(file, withCheck) {
   const text = exists(file) ? read(file).trimEnd() : '';
   const re = /<!-- harness-rtl:begin[\s\S]*?<!-- harness-rtl:end -->/;
-  const next = re.test(text) ? text.replace(re, RULES_BLOCK) : `${text}\n\n${RULES_BLOCK}`.trimStart();
+  const block = rulesBlock(withCheck);
+  const next = re.test(text) ? text.replace(re, block) : `${text}\n\n${block}`.trimStart();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   backup(file);
   write(file, next + '\n');
@@ -490,7 +496,7 @@ function installQoder(h, state, dry) {
 }
 
 function installRulesOnly(h, state, dry, extra = []) {
-  if (!dry && !has('--no-rules')) upsertRules(h.rulesFile);
+  if (!dry && !has('--no-rules')) upsertRules(h.rulesFile, true);
   const lines = [has('--no-rules') ? 'rules: skipped (--no-rules)' : `rules: ${h.rulesFile}`];
   if (h.skillsDir) lines.push(`skill: ${installSkill(h.skillsDir, state, dry)}`);
   return lines.concat(extra);
@@ -514,7 +520,7 @@ function installHermes(h, state, dry) {
 }
 
 function installCodex(h, state, dry) {
-  if (!dry && !has('--no-rules')) upsertRules(h.rulesFile);
+  if (!dry && !has('--no-rules')) upsertRules(h.rulesFile, true);
   return [
     has('--no-rules') ? 'rules: skipped (--no-rules)' : `rules: ${h.rulesFile}`,
     'renderer: nothing to inject — Codex desktop renders Persian bidi natively;',
@@ -700,20 +706,21 @@ function check() {
   }));
 
   const notices = [];
+  const rtlPath = norm(path.join(ROOT, 'install', 'rtl.js'));
   for (const { h, verified } of rows) {
     if (!h.adapterInstalled || !h.version) continue;
     if (verified !== h.version) {
-      notices.push(`${h.name} ${h.version} is newer than verified ${verified || 'never'}; run: node install/rtl.js verify ${h.id}`);
+      notices.push(`${h.name} is ${h.version}, but the skill was verified against ${verified || 'nothing'}; update the skill: node "${rtlPath}" install && node "${rtlPath}" verify ${h.id}.`);
     }
   }
   const staleSkills = skillCopies(state);
   if (staleSkills.length) {
-    notices.push(`installed skill copy is not ${pkg.version}; run: node install/rtl.js install`);
+    notices.push(`the installed skill copies are older than repo ${pkg.version}; update: node "${rtlPath}" install.`);
   }
 
   if (has('--hook')) {
     if (notices.length) {
-      console.log(`harness-rtl: ${notices[0]} Tell the user this in one line.`);
+      console.log(`harness-rtl: ${notices.join(' ')} Repeat this to the user in one line.`);
     }
     process.exitCode = notices.length ? 2 : 0;
     return;

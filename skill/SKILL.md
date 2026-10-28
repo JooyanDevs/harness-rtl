@@ -63,22 +63,25 @@ answers in HTML unless the harness is Qoder; other renderers show the tags as te
 
 ## 3. Update notices (self-update)
 
-Run `check` at the start of any RTL task and when the user says a harness was
-updated:
+Claude Code and Qoder run `check --hook` by themselves at session start. In the
+other harnesses the managed rules block tells the model to run it at session
+start. The same command is also safe to run by hand at the start of any RTL
+task and when the user says a harness was updated:
 
 ```bash
 node "<repo>/install/rtl.js" check
 ```
 
 - Exit `0`: nothing to do.
-- Exit `2` / `UPDATE NEEDED`: a harness version changed since it was verified.
-  Say it in one line, then run `verify`. If PASS, the fix survived; if FAIL,
-  follow `references/update.md`, patch, test, bump, release.
+- Exit `2` / `UPDATE NEEDED`: a harness version changed, or the installed skill
+  copies are older than the repo. Say it in one line, then update the skill:
+  `install`, then `verify`. If verify PASS, the fix survived; if FAIL, follow
+  `references/update.md`, patch, test, bump, release.
 - "release behind": the local adapter works but the published manifest is older.
   Only the maintainer acts on this; tell the user a skill release is due.
 
-Claude Code shows this notice by itself at session start. Everywhere else the
-skill is the notice.
+Claude Code shows the notice at session start; Qoder hands it to the agent as
+context. Everywhere else the rules block is the notice.
 
 ## 4. When something looks wrong
 

@@ -4,6 +4,8 @@
 
 - Harness versions: `claude --version`, `hermes --version`, `codex --version`,
   `opencode --version`, and the newest `.qoder-versions/<version>` folder.
+- The session-start hook reads `~/.harness-rtl/state.json` and runs the local
+  `check`: harness versions and skill version stamps, nothing else.
 - Config paths and their content where the tool must patch them:
   `~/.claude/settings.json`, `~/.claude/CLAUDE.md`, `~/.qoder/settings.json`,
   `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md`, `~/.zcode/AGENTS.md`,
