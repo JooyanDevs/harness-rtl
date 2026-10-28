@@ -25,6 +25,7 @@ const RULE = [
   '',
   '  </div>',
   '- Raw HTML is rendered here; dir/align survive. Do not use style="", it is stripped, and do not use <font>.',
+  '- Put every paragraph, list and table inside the wrapper; nothing after the closing tag.',
   '- Put each fenced code block outside the wrapper and leave it byte-exact.',
   '- Pure English answers stay plain Markdown (LTR). Mixed Persian + English counts as Persian.',
 ].join('\n');

@@ -46,7 +46,7 @@ Do not report success until it prints PASS for the harness you touched.
 | Harness | Surface | Result |
 |---|---|---|
 | Claude Code | `MessageDisplay` hook + `SessionStart` notice | correct order in answers, code untouched |
-| Qoder | `SessionStart` + `UserPromptSubmit` hooks | answers right-aligned via `<div dir="rtl" align="right">`; UI chrome unchanged |
+| Qoder | `SessionStart` + `UserPromptSubmit` hooks | answers right-aligned via `<div dir="rtl" align="right">`; UI chrome and font stay Qoder's own |
 | Hermes | desktop plugin | true RTL alignment, ellipsis, Vazirmatn |
 | Codex | instructions block only | correct output shape; desktop already renders bidi |
 | Cline | global rules file | order-safe answers; no raw HTML in chat |
@@ -89,7 +89,9 @@ skill is the notice.
    a release blocker; fix `engine/text-fix.js` fence tracking first.
 4. Everything right but the font is not Vazirmatn → the font must be installed
    on the system. The CSS asks for `Vazirmatn`, `Vazirmatn RD`, `Vazirmatn UI`
-   and falls back to Segoe UI/Tahoma. Do not bundle or download fonts.
+   and falls back to Segoe UI/Tahoma. Do not bundle or download fonts. Qoder
+   is out of reach: it strips `style` and `<font>`, so its answers keep Qoder's
+   own font; say so instead of promising Vazirmatn there.
 
 ## 5. Privacy contract (do not weaken)
 
