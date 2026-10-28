@@ -35,6 +35,10 @@ Consequences, all intentional:
 - Fenced code blocks in every surface. An invisible PDI riding along on
   copy-paste breaks PowerShell/bash, and a code fence inside an RTL wrapper can
   reorder punctuation.
+  Exception, opt-in only: a fence tagged exactly `fa` holds Persian prose, never a
+  command. The Claude hook shows it as a hard-break blockquote (right-aligned,
+  correct order); the copy button is traded for display. Untagged fences stay
+  byte-exact.
 - The saved transcript and what the model sees. Display-only transforms must
   never write to disk.
 - Document base direction. The app chrome stays LTR; only Persian-bearing

@@ -37,6 +37,16 @@ test('fenced code is never touched, even with Persian inside', () => {
   assert.equal(transform(src), src);
 });
 
+test('a fence tagged fa becomes a right-aligned hard-break blockquote', () => {
+  const out = transform('```fa\nسلام دنیا\n\nhello\n```');
+  assert.equal(out, `> ${RLI}سلام دنیا${PDI}  \n>\n> hello  `);
+});
+
+test('only the exact tag fa opts in', () => {
+  const src = '```fab\nسلام\n```';
+  assert.equal(transform(src), src);
+});
+
 test('table rows wrap cells, not the row', () => {
   const out = transform('| نام | مقدار |');
   assert.equal(out, `| ${RLI}نام${PDI} | ${RLI}مقدار${PDI} |`);

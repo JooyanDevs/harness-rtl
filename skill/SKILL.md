@@ -16,7 +16,8 @@ license: MIT
 Persian UI in AI harnesses, done once and kept working across harness updates.
 
 The rule is fixed: **any Persian/Arabic/Hebrew letter makes a block RTL; pure
-English/code stays LTR; mixed is RTL.** Code fences are never rewritten.
+English/code stays LTR; mixed is RTL.** Code fences are never
+rewritten, except a fence tagged `fa`: Persian prose only, shown right-aligned.
 
 ## 0. Find the tool
 

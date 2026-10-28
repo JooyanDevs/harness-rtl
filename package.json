@@ -1,6 +1,6 @@
 {
   "name": "harness-rtl",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Persian RTL fix and a self-updating skill for AI harnesses",
   "license": "MIT",
