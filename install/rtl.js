@@ -44,7 +44,7 @@ function rulesBlock(withCheck) {
 - A block that contains Persian is right-to-left. Keep a Persian paragraph on one line and never break it with a command, path, URL or identifier — put those on their own line.
 - Pure English and code stay left-to-right. Mixed Persian + English is right-to-left.
 - Fenced code must stay byte-exact: no bidi control characters, no reordering, no wrapping.
-- Persian prose the user will copy (a script, caption, message) goes in a fence tagged "fa"; the display hook shows it right-aligned. Never tag a command or path "fa".${check}
+- Persian prose the user will copy (a script, caption, message) goes in a fence tagged "fa"; the display hook shows it right-aligned. Never tag a command or path "fa". When you can run commands, also put that exact text on the clipboard (the "fa" block has no copy button): write it to a UTF-8 file, then on Windows run powershell -NoProfile -Command "Get-Content -Raw -Encoding UTF8 <file> | Set-Clipboard" (macOS: pbcopy < file), and say it was copied.${check}
 <!-- harness-rtl:end -->`;
 }
 

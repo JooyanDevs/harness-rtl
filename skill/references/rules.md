@@ -38,7 +38,10 @@ Consequences, all intentional:
   Exception, opt-in only: a fence tagged exactly `fa` holds Persian prose, never a
   command. The Claude hook shows it as a hard-break blockquote (right-aligned,
   correct order); the copy button is traded for display. Untagged fences stay
-  byte-exact.
+  byte-exact. Because that block has no copy button, the model also puts the exact
+  text on the clipboard: write it to a UTF-8 file, then on Windows
+  `Get-Content -Raw -Encoding UTF8 <file> | Set-Clipboard` (macOS `pbcopy < file`),
+  and says it was copied.
 - The saved transcript and what the model sees. Display-only transforms must
   never write to disk.
 - Document base direction. The app chrome stays LTR; only Persian-bearing
